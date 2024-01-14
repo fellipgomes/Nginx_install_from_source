@@ -119,7 +119,9 @@ sudo systemctl daemon-reload
 sudo systemctl restart nginx
 
 
+# Outro metodo de instalar
 
+https://serverfault.com/questions/879950/how-to-resolve-openssl-package-error-while-installing-nginx
 
 sudo yum install unzip gcc pcre-devel zlib-devel make golang wget
 mkdir -p /tmp/nginx-dep
