@@ -117,3 +117,86 @@ printf "[Service]\nExecStartPost=/bin/sleep 0.1\n" | \
 sudo tee /etc/systemd/system/nginx.service.d/override.conf
 sudo systemctl daemon-reload
 sudo systemctl restart nginx
+
+
+
+
+sudo yum install unzip gcc pcre-devel zlib-devel make golang wget
+mkdir -p /tmp/nginx-dep
+cd /tmp/nginx-dep
+curl -O https://www.openssl.org/source/openssl-1.0.2g.tar.gz
+curl -O http://nginx.org/download/nginx-1.9.14.tar.gz
+tar zxf openssl-1.0.2g.tar.gz
+tar zxf nginx-1.9.14.tar.gz
+cd nginx-1.9.14/
+./configure --with-http_ssl_module \
+            --with-openssl=`realpath ../openssl-1.0.2g` \
+            --prefix=/usr/share/nginx \
+            --sbin-path=/usr/sbin/nginx \
+            --modules-path=/usr/lib/nginx/modules \
+            --conf-path=/etc/nginx/nginx.conf \
+            --error-log-path=/var/log/nginx/error.log \
+            --http-log-path=/var/log/nginx/access.log \
+            --pid-path=/run/nginx.pid \
+            --lock-path=/var/lock/nginx.lock \
+            --http-client-body-temp-path=/var/lib/nginx/body \
+            --http-fastcgi-temp-path=/var/lib/nginx/fastcgi \
+            --http-proxy-temp-path=/var/lib/nginx/proxy \
+            --http-scgi-temp-path=/var/lib/nginx/scgi \
+            --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
+            --with-openssl-opt=enable-ec_nistp_64_gcc_128 \
+            --with-openssl-opt=no-nextprotoneg \
+            --with-openssl-opt=no-weak-ssl-ciphers \
+            --with-openssl-opt=no-ssl3 \
+            --with-pcre-jit \
+            --with-threads \
+            --with-http_addition_module \
+            --with-http_auth_request_module \
+            --with-http_dav_module \
+            --with-http_flv_module \
+            --with-http_gunzip_module \
+            --with-http_gzip_static_module \
+            --with-http_mp4_module \
+            --with-http_random_index_module \
+            --with-http_realip_module \
+            --with-http_slice_module \
+            --with-http_ssl_module \
+            --with-http_sub_module \
+            --with-http_stub_status_module \
+            --with-http_v2_module \
+            --with-http_secure_link_module \
+            --with-mail \
+            --with-mail_ssl_module \
+            --with-stream \
+            --with-stream_ssl_module
+make
+sudo make install
+
+sudo mkdir -p /var/lib/nginx && sudo nginx -t
+
+# create service
+sudo touch /etc/systemd/system/nginx.service
+printf '
+[Unit]
+Description=The nginx HTTP and reverse proxy server
+After=network.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=forking
+PIDFile=/run/nginx.pid
+# Nginx will fail to start if /run/nginx.pid already exists but has the wrong
+# SELinux context. This might happen when running `nginx -t` from the cmdline.
+# https://bugzilla.redhat.com/show_bug.cgi?id=1268621
+ExecStartPre=/usr/bin/rm -f /run/nginx.pid
+ExecStartPre=/usr/sbin/nginx -t
+ExecStart=/usr/sbin/nginx
+ExecReload=/bin/kill -s HUP $MAINPID
+KillSignal=SIGQUIT
+TimeoutStopSec=5
+KillMode=process
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target' | sudo tee  /etc/systemd/system/nginx.service
+
+rm /tmp/nginx-dep -ri
